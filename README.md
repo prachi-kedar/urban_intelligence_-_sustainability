@@ -85,18 +85,20 @@ The application will be available at `http://127.0.0.1:5000`.
 -   **Citizen Portal**: `http://127.0.0.1:5000/citizen`
 
 
-
 ## 🎥 Dashboard Previews
 
-Below are video previews demonstrating the dashboards for both Urban Planners and Users. The videos are hosted on Google Drive for easy access:
+Below are video previews demonstrating the dashboards for both Urban Planners and Users:
 
 ### 🏙️ Urban Planner Dashboard
 
-[Urban Planner Dashboard (Google Drive)](https://drive.google.com/file/d/1aX6iNYqISWLHym_3o6MURwPs_M6QJhlx/view?usp=sharing)
+<video src="assets/Urban Planner Dashboard.gif" controls width="600"></video>
+
+
 
 ### 🚶 User Dashboard
 
-[User Dashboard (Google Drive)](https://drive.google.com/file/d/1ioxpv4mgqwU0xiDX63MupFobJB9kpO03/view?usp=sharings)
+<video src="assets/User Dashboard.gif" controls width="600"></video>
+
 
 ## 📁 Project Structure
 

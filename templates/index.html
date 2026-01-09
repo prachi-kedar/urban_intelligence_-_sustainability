@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Urban Intelligence Dashboard</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard_style.css') }}">
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="sidebar-header">
+        <h1>Urban Intelligence</h1>
+        <p>Zurich Real-Time Analysis</p>
+        
+        
+    </div>
+
+    <div class="sidebar-section">
+        <h2>🧠 AI Urban Mentor</h2>
+        <div id="mentor-advice">
+            <p>Loading AI Report...</p>
+        </div>
+    </div>
+
+    <div class="sidebar-section">
+        <h2>🔥 Dynamic Congestion</h2>
+        <div id="incident-analysis">
+            <p>Scanning for unscheduled events...</p>
+        </div>
+    </div>
+
+    <div class="sidebar-section">
+        <h2>📈 Top 5 PT Delay Hotspots</h2>
+        <table id="top-delays-table">
+            <thead>
+                <tr>
+                    <th>Stop</th>
+                    <th>Severity</th>
+                    <th>Delay (min)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td colspan="3" style="text-align: center;">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="map-container">
+    <div id="map"></div>
+    <div class="legend">
+        <h4>Map Legend</h4>
+        <div class="legend-group">
+            <h5>Public Transport Delay</h5>
+            <div class="legend-item"><span class="color-box" style="background-color: red;"></span> Critical (>8.0)</div>
+            <div class="legend-item"><span class="color-box" style="background-color: orange;"></span> High (4.0 - 8.0)</div>
+            <div class="legend-item"><span class="color-box" style="background-color: green;"></span> Standard (<4.0)</div>
+        </div>
+        <div class="legend-group">
+            <h5>Pedestrian Risk</h5>
+            <div class="legend-item"><span class="color-box" style="background-color: #C51B7D;"></span> Critical (>15.0)</div>
+            <div class="legend-item"><span class="color-box" style="background-color: #DE77AE;"></span> High (8.0 - 15.0)</div>
+            <div class="legend-item"><span class="color-box" style="background-color: #8856A7;"></span> Standard (<8.0)</div>
+        </div>
+        <div class="legend-group">
+            <h5>Route Adherence (Tram 11)</h5>
+            <div class="legend-item"><span class="color-box" style="background-color: #D73027;"></span> Critical Gap (<0.3)</div>
+            <div class="legend-item"><span class="color-box" style="background-color: #FEE08B;"></span> Low Adherence (0.3-0.6)</div>
+            <div class="legend-item"><span class="color-box" style="background-color: #1A9850;"></span> High Adherence (>0.6)</div>
+        </div>
+         <div class="legend-group">
+            <h5>Dynamic Rerouting</h5>
+            <div class="legend-item"><span class="color-box" style="background-color: purple;"></span> Event/Closed Area</div>
+            <div class="legend-item"><span class="color-box" style="background-color: blue;"></span> Recommended Detour</div>
+        </div>
+        <div class="legend-group">
+            <h5>Congestion Heatmap</h5>
+            <div class="legend-item">
+                <span style="display: inline-block; width: 20px; height: 20px; background: linear-gradient(to top, red, yellow, lime); margin-right: 10px;"></span>
+                High to Low
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+<script>
+    // Initialize Leaflet Map
+    var map = L.map('map').setView([{{ center_lat }}, {{ center_lon }}], 13);
+
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 19
+    }).addTo(map);
+
+    var delayMarkers = L.layerGroup().addTo(map);
+    var riskMarkers = L.layerGroup().addTo(map);
+    var routeLayers = L.layerGroup().addTo(map);
+    var incidentLayers = L.layerGroup().addTo(map);
+    var heatLayer = null;
+
+    // --- Data Fetching Functions ---
+
+    function fetchAndDrawHeatmap() {
+        fetch('/api/congestion-heatmap')
+            .then(response => response.json())
+            .then(data => {
+                if (heatLayer) {
+                    map.removeLayer(heatLayer);
+                }
+                heatLayer = L.heatLayer(data, {
+                    radius: 25,
+                    blur: 15,
+                    maxZoom: 17,
+                    gradient: {0.1: 'blue', 0.4: 'lime', 0.8: 'yellow', 1.0: 'red'}
+                }).addTo(map);
+            })
+            .catch(error => console.error('Error fetching heatmap data:', error));
+    }
+
+    function fetchAndPlotDelays() {
+        fetch('/api/analyze')
+            .then(response => response.json())
+            .then(data => {
+                delayMarkers.clearLayers();
+                const tbody = document.getElementById('top-delays-table').getElementsByTagName('tbody')[0];
+                tbody.innerHTML = '';
+                
+                data.slice(0, 5).forEach(item => {
+                    const row = tbody.insertRow();
+                    row.insertCell().textContent = item.stop_name;
+                    row.insertCell().textContent = item.severity_index;
+                    row.insertCell().textContent = item.avg_delay_min;
+                });
+
+                data.forEach(item => {
+                    if (item.lat && item.lon) {
+                        const radius = 8 + (item.severity_index * 1.5);
+                        L.circleMarker([item.lat, item.lon], {
+                            radius: radius,
+                            color: item.color,
+                            fillColor: item.color,
+                            fillOpacity: 0.7
+                        })
+                        .bindPopup(`<b>${item.stop_name}</b><br>Severity: ${item.severity_index.toFixed(2)}<br>Avg. Delay: ${item.avg_delay_min} min`)
+                        .addTo(delayMarkers);
+                    }
+                });
+            })
+            .catch(error => console.error('Error fetching delay data:', error));
+    }
+
+    function fetchAndPlotRouteAdherence() {
+        fetch('/api/route_adherence')
+            .then(response => response.json())
+            .then(data => {
+                routeLayers.clearLayers();
+                const routeCoords = data.route_coords;
+                const segments = data.route_segments;
+                
+                segments.forEach((segment, index) => {
+                    if (!routeCoords[index + 1]) return;
+                    const startCoords = routeCoords[index];
+                    const endCoords = routeCoords[index + 1];
+
+                    L.polyline([startCoords, endCoords], {
+                        color: segment.color,
+                        weight: 7,
+                        opacity: 0.75
+                    })
+                    .bindPopup(`<b>Tram 11: ${segment.start_stop} to ${segment.end_stop}</b><br>Adherence: ${segment.sas}<br>Status: ${segment.adherence}`)
+                    .addTo(routeLayers);
+                });
+            })
+            .catch(error => console.error('Error fetching route adherence data:', error));
+    }
+
+    function fetchAndPlotPedestrianRisk() {
+        fetch('/api/pedestrian_risk')
+            .then(response => response.json())
+            .then(data => {
+                riskMarkers.clearLayers();
+                data.forEach(item => {
+                    if (item.lat && item.lon) {
+                        L.circleMarker([item.lat, item.lon], {
+                            radius: 10,
+                            color: item.color,
+                            fillColor: item.color,
+                            fillOpacity: 0.9,
+                            weight: 2,
+                            stroke: true
+                        })
+                        .bindPopup(`<b>${item.intersection_name}</b><br>Risk Score: ${item.risk_score.toFixed(2)}<br>Priority: ${item.priority}`)
+                        .addTo(riskMarkers);
+                    }
+                });
+            })
+            .catch(error => console.error('Error fetching risk data:', error));
+    }
+
+    function fetchMentorAdvice() {
+        fetch('/api/mentor_advice')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('mentor-advice').innerHTML = data.report;
+            })
+            .catch(error => {
+                document.getElementById('mentor-advice').innerHTML = '<p style="color:red;">Error loading mentor advice.</p>';
+            });
+    }
+
+    function fetchDynamicRerouteIncident() {
+        fetch('/api/dynamic_reroute')
+            .then(response => response.json())
+            .then(data => {
+                const analysisDiv = document.getElementById('incident-analysis');
+                incidentLayers.clearLayers();
+
+                if (data.event_active) {
+                    analysisDiv.innerHTML = data.advice;
+                    if (data.image_url) {
+                        analysisDiv.innerHTML += `<p>Image Confirmation:</p><img src="${data.image_url}" alt="Aerial Image of Incident Area">`;
+                    }
+
+                    if (data.closed_polygon) {
+                        L.polygon(data.closed_polygon, {
+                            color: 'purple',
+                            fillColor: 'purple',
+                            fillOpacity: 0.3,
+                            weight: 4
+                        })
+                        .bindPopup('<b>CONGESTION/CLOSURE AREA</b>')
+                        .addTo(incidentLayers);
+                    }
+
+                    if (data.detour_route) {
+                        L.polyline(data.detour_route, {
+                            color: 'blue',
+                            weight: 6,
+                            opacity: 0.8,
+                            dashArray: '10, 5'
+                        })
+                        .bindPopup('<b>RECOMMENDED DETOUR</b>')
+                        .addTo(incidentLayers);
+                    }
+                } else {
+                    analysisDiv.innerHTML = `<p style="color: green; font-weight: bold;">${data.advice || 'No unscheduled events detected.'}</p>`;
+                }
+            })
+            .catch(error => {
+                document.getElementById('incident-analysis').innerHTML = '<p style="color:red;">Error loading incident data.</p>';
+            });
+    }
+
+    function fetchWeather() {
+        fetch('/api/weather')
+            .then(response => response.json())
+            .then(data => {
+                const weatherContent = document.getElementById('weather-content');
+                if (data.error) {
+                    weatherContent.innerHTML = `<p style="color:red;">${data.error}</p>`;
+                    return;
+                }
+                const iconUrl = `https://openweathermap.org/img/wn/${data.icon}@2x.png`;
+                
+                weatherContent.innerHTML = `
+                    <div class="weather-main">
+                        <img src="${iconUrl}" alt="${data.description}" class="weather-icon">
+                        <span class="weather-temp">${data.temperature.toFixed(1)}°C</span>
+                    </div>
+                    <p class="weather-description">${data.description}</p>
+                    <div class="weather-details">
+                        <span>Humidity: ${data.humidity}%</span>
+                        <span>Wind: ${data.wind_speed} m/s</span>
+                    </div>
+                `;
+            })
+            .catch(error => {
+                console.error('Error fetching weather data:', error);
+                document.getElementById('weather-content').innerHTML = '<p style="color:red;">Could not fetch weather data.</p>';
+            });
+    }
+
+    function fetchAirQuality() {
+        fetch('/api/air-quality')
+            .then(response => response.json())
+            .then(data => {
+                const airContent = document.getElementById('air-quality-content');
+                if (data.error) {
+                    airContent.innerHTML = `<p style="color:red;">${data.error}</p>`;
+                    return;
+                }
+
+                // Determine color based on AQI
+                let aqiColor = 'green';
+                if (data.aqi >= 3) aqiColor = 'orange';
+                if (data.aqi >= 4) aqiColor = 'red';
+
+                airContent.innerHTML = `
+                    <div class="aqi-main">
+                        <span class="aqi-value" style="color: ${aqiColor};">${data.aqi}</span>
+                        <span class="aqi-quality" style="color: ${aqiColor};">${data.quality}</span>
+                    </div>
+                    <div class="aqi-details">
+                        <span>PM2.5: <strong>${data.components.pm2_5.toFixed(2)}</strong> μg/m³</span>
+                        <span>NO₂: <strong>${data.components.no2.toFixed(2)}</strong> μg/m³</span>
+                    </div>
+                `;
+            })
+            .catch(error => {
+                console.error('Error fetching air quality data:', error);
+                document.getElementById('air-quality-content').innerHTML = '<p style="color:red;">Could not fetch air quality data.</p>';
+            });
+    }
+
+    function initializeDashboard() {
+        fetchAndDrawHeatmap();
+        fetchAndPlotDelays();
+        fetchAndPlotRouteAdherence();
+        fetchAndPlotPedestrianRisk();
+        fetchMentorAdvice();
+        fetchDynamicRerouteIncident();
+    }
+
+    initializeDashboard();
+    setInterval(initializeDashboard, 30000); 
+</script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Citizen Portal - Nexus</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='portals.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Citizen Portal</h1>
+            <p>Tools to help you navigate and engage with your city.</p>
+        </header>
+        <div class="feature-grid">
+            <a href="/user-routing" class="feature-card">
+                <h3>Heat-Stress Aware Routing</h3>
+                <p>Plan walking or cycling routes that avoid high-temperature zones for a safer journey.</p>
+            </a>
+            <a href="/navigation" class="feature-card">
+                <h3>Smart Navigation</h3>
+                <p>Get optimal routes for any mode of transport, powered by real-time traffic data.</p>
+            </a>
+            <a href="/construction" class="feature-card">
+                <h3>Construction Rerouting</h3>
+                <p>Easily navigate around known construction zones and avoid delays.</p>
+            </a>
+            <a href="/events" class="feature-card">
+                <h3>Event Discovery</h3>
+                <p>Find out what's happening in the city with a list of current events.</p>
+            </a>
+            <a href="/event_planning" class="feature-card">
+                <h3>Event Visit Planner</h3>
+                <p>Plan your visit to popular events by finding less crowded times and the best routes.</p>
+            </a>
+        </div>
+        <a href="/" class="back-link">← Back to Main Portal</a>
+    </div>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Features - Urban Intelligence</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard_style.css') }}">
+    <style>
+        body {
+            background-color: #f0f2f5;
+            font-family: 'Roboto', sans-serif;
+        }
+        .features-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 30px;
+            padding: 40px;
+            max-width: 1200px;
+            margin: auto;
+        }
+        .page-header {
+            width: 100%;
+            text-align: center;
+            margin-bottom: 20px;
+            padding-top: 20px;
+            color: #333;
+        }
+        .page-header h1 {
+            font-size: 2.8em;
+            font-weight: 700;
+            color: var(--primary-color, #005a70);
+        }
+        .page-header a {
+            text-decoration: none;
+            color: #007bff;
+            font-weight: bold;
+            font-size: 1.1em;
+            transition: color 0.3s;
+        }
+        .page-header a:hover {
+            color: #0056b3;
+        }
+        .feature-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.09);
+            width: 350px;
+            overflow: hidden;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 28px rgba(0,0,0,0.12);
+        }
+        .feature-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+        .card-content {
+            padding: 25px;
+        }
+        .card-content h3 {
+            margin-top: 0;
+            font-size: 1.5em;
+            color: var(--primary-color, #005a70);
+        }
+        .card-content p {
+            font-size: 1em;
+            line-height: 1.6;
+            color: #555;
+            margin-bottom: 20px;
+        }
+        .button {
+            display: inline-block;
+            background-color: var(--accent-color, #ffc107);
+            color: black;
+            padding: 12px 25px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            text-align: center;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #ffb300;
+        }
+    </style>
+</head>
+<body>
+    <div class="page-header">
+        <h1>Additional Features</h1>
+        <p><a href="/">&larr; Back to Main Dashboard</a></p>
+    </div>
+    <div class="features-container">
+        <div class="feature-card">
+            <img src="{{ url_for('static', filename='images/security.jpg') }}" alt="Security Center">
+            <div class="card-content">
+                <h3>Security Center</h3>
+                <p>Monitor crowd density and detect anomalies in real-time to enhance public safety.</p>
+                <a href="/security-dashboard" class="button">Go to Security Center</a>
+            </div>
+        </div>
+        <div class="feature-card">
+            <img src="{{ url_for('static', filename='images/ai_mentor.jpg') }}" alt="AI Mentor">
+            <div class="card-content">
+                <h3>AI Mentor</h3>
+                <p>Ask questions and get guidance on urban planning principles from an AI assistant.</p>
+                <a href="/ai-mentor" class="button">Launch AI Mentor</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

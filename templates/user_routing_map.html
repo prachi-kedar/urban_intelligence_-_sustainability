@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Dynamic User Rerouting - Heat Stress Avoidance</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    <link rel="stylesheet" href="{{ url_for('static', filename='user_routing_style.css') }}">
+</head>
+<body>
+
+<div class="container">
+    <div class="control-panel">
+        <h1>User Rerouting</h1>
+        <p>Click on the map to set your start and end points. The system will automatically route you around high-temperature zones based on NASA LST data.</p>
+
+        <div id="route-input-panel">
+            <div class="address-group">
+                <label for="source-address">A. Source</label>
+                <input type="text" id="source-address" placeholder="Click on the map..." readonly>
+            </div>
+            <div class="address-group">
+                <label for="destination-address">B. Destination</label>
+                <input type="text" id="destination-address" placeholder="Click on the map..." readonly>
+            </div>
+        </div>
+
+        <div id="status-panel">
+            <p id="status" class="status-waiting">Waiting for source selection...</p>
+        </div>
+
+        <button onclick="resetMap()" disabled id="resetButton">Start New Route</button>
+
+        <div class="legend">
+            <h4>Legend</h4>
+            <div class="legend-item"><span class="color-box" style="background-color: #3b82f6;"></span> Direct Route</div>
+            <div class="legend-item"><span class="color-box" style="background-color: #16a34a;"></span> Heat-Avoidance Path</div>
+            <div class="legend-item"><span class="color-box" style="background-color: #ef4444;"></span> High LST Zone (NASA)</div>
+        </div>
+    </div>
+
+    <div id="map-container">
+        <div id="map"></div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+    var map = L.map('map').setView([
+        {{ center_lat | default('47.3769') }}, 
+        {{ center_lon | default('8.5417') }}
+    ], 13);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 19
+    }).addTo(map);
+
+    var sourceMarker = null;
+    var destMarker = null;
+    var routeLayer = null;
+    var heatZoneLayer = null;
+    var clickState = 'source'; // 'source' or 'destination'
+
+    const statusDiv = document.getElementById('status');
+    const resetButton = document.getElementById('resetButton');
+    const sourceInput = document.getElementById('source-address');
+    const destInput = document.getElementById('destination-address');
+
+    function updateStatus(message, type = 'waiting') {
+        statusDiv.textContent = message;
+        statusDiv.className = `status-${type}`;
+    }
+
+    window.resetMap = function() {
+        if (sourceMarker) map.removeLayer(sourceMarker);
+        if (destMarker) map.removeLayer(destMarker);
+        if (routeLayer) map.removeLayer(routeLayer);
+        if (heatZoneLayer) map.removeLayer(heatZoneLayer);
+        
+        sourceMarker = null;
+        destMarker = null;
+        routeLayer = null;
+        heatZoneLayer = null;
+        
+        sourceInput.value = '';
+        destInput.value = '';
+        resetButton.disabled = true;
+        clickState = 'source';
+        updateStatus("Waiting for source selection...", 'waiting');
+    }
+
+    function calculateDynamicRoute(sourceLatLng, destLatLng) {
+        updateStatus('Calculating dynamic route...', 'waiting');
+
+        fetch('/api/calculate-user-route', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source: sourceLatLng, destination: destLatLng })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                updateStatus('Error: ' + data.error, 'rerouted');
+                return;
+            }
+            
+            if (routeLayer) map.removeLayer(routeLayer);
+            if (heatZoneLayer) map.removeLayer(heatZoneLayer);
+
+            if (data.crowd_polygon && data.crowd_polygon.length > 0) {
+                heatZoneLayer = L.polygon(data.crowd_polygon, {
+                    color: '#ef4444',
+                    fillColor: '#ef4444',
+                    fillOpacity: 0.2,
+                    weight: 2
+                })
+                .bindPopup('<strong>High Heat Risk Zone</strong><br>Based on NASA LST data.')
+                .addTo(map);
+            }
+
+            const routeColor = data.is_rerouted ? '#16a34a' : '#3b82f6';
+            routeLayer = L.polyline(data.route_coordinates, {
+                color: routeColor,
+                weight: 6,
+                opacity: 0.85
+            }).addTo(map);
+
+            map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+            updateStatus(data.crowd_status, data.is_rerouted ? 'rerouted' : 'direct');
+        })
+        .catch(error => {
+            updateStatus('Calculation error.', 'rerouted');
+            console.error('Error:', error);
+        });
+    }
+
+    function onMapClick(e) {
+        const latlng = e.latlng;
+        const displayValue = `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`;
+
+        if (clickState === 'source') {
+            resetMap();
+            
+            sourceMarker = L.marker(latlng, { draggable: true }).addTo(map)
+                .bindPopup('<b>Source</b><br>Drag to adjust').openPopup();
+            sourceInput.value = displayValue;
+            
+            sourceMarker.on('dragend', function(event) {
+                const newLatLng = event.target.getLatLng();
+                sourceInput.value = `${newLatLng.lat.toFixed(5)}, ${newLatLng.lng.toFixed(5)}`;
+                if (destMarker) {
+                    calculateDynamicRoute(newLatLng, destMarker.getLatLng());
+                }
+            });
+
+            clickState = 'destination';
+            updateStatus("Source set. Click map for destination.", 'waiting');
+            resetButton.disabled = false;
+
+        } else if (clickState === 'destination') {
+            if (destMarker) map.removeLayer(destMarker);
+
+            destMarker = L.marker(latlng, { draggable: true }).addTo(map)
+                .bindPopup('<b>Destination</b><br>Drag to adjust').openPopup();
+            destInput.value = displayValue;
+
+            destMarker.on('dragend', function(event) {
+                const newLatLng = event.target.getLatLng();
+                destInput.value = `${newLatLng.lat.toFixed(5)}, ${newLatLng.lng.toFixed(5)}`;
+                if (sourceMarker) {
+                    calculateDynamicRoute(sourceMarker.getLatLng(), newLatLng);
+                }
+            });
+
+            clickState = 'source'; // Reset for next route
+            calculateDynamicRoute(sourceMarker.getLatLng(), destMarker.getLatLng());
+        }
+    }
+
+    map.on('click', onMapClick);
+    resetMap(); // Initial setup
+</script>
+</body>
+</html>

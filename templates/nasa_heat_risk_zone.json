@@ -1,0 +1,12 @@
+{
+    "polygon": [
+        [47.3785, 8.5400],
+        [47.3795, 8.5445],
+        [47.3770, 8.5470],
+        [47.3735, 8.5430],
+        [47.3730, 8.5385],
+        [47.3785, 8.5400]
+    ],
+    "description": "High Heat Zone (UHI) in Zurich based on real LST analysis around the central university and HB area.",
+    "source_type": "Real-world LST analysis coordinates (pre-processed)"
+}

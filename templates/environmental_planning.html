@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Environmental Hazard Planning</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='navigation_style.css') }}">
+    <style>
+        body { display: flex; overflow: hidden; }
+        #map { flex-grow: 1; height: 100vh; }
+        .sidebar { width: 450px; }
+        .hazard-type-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .hazard-type-selector button {
+            flex: 1;
+            padding: 12px;
+            font-size: 1em;
+            font-weight: 500;
+        }
+        #analysis-panel {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            display: none; /* Hidden by default */
+        }
+        #analysis-panel h3 {
+            margin-top: 0;
+            color: #dc3545; /* Red for hazard */
+        }
+        .solution-item {
+            margin-bottom: 15px;
+            padding-left: 15px;
+            border-left: 3px solid #007bff;
+        }
+        .solution-item h5 {
+            margin: 0 0 5px;
+        }
+        .solution-item p {
+            margin: 0;
+            font-size: 0.9em;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="sidebar">
+        <h2>Environmental Hazard Planning</h2>
+        <p>Analyze high-risk zones and explore sustainable mitigation solutions for urban planners.</p>
+        
+        <div class="hazard-type-selector">
+            <button id="btn-landslide" class="cta-button">Landslide Risks</button>
+            <button id="btn-winter" class="cta-button">Winter Road Hazards</button>
+        </div>
+
+        <div id="analysis-panel">
+            <h3 id="analysis-title"></h3>
+            <p><strong>Risk Level:</strong> <span id="analysis-risk"></span></p>
+            <p><strong>Analysis:</strong> <span id="analysis-desc"></span></p>
+            <hr>
+            <h4>Sustainable Solutions</h4>
+            <div id="analysis-solutions"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const map = L.map('map').setView([47.37, 8.54], 13);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 19
+            }).addTo(map);
+
+            let hazardLayer = L.layerGroup().addTo(map);
+            const analysisPanel = document.getElementById('analysis-panel');
+
+            function displayAnalysis(feature) {
+                document.getElementById('analysis-title').textContent = feature.name;
+                document.getElementById('analysis-risk').textContent = feature.risk_level;
+                document.getElementById('analysis-desc').textContent = feature.analysis;
+                
+                const solutionsDiv = document.getElementById('analysis-solutions');
+                solutionsDiv.innerHTML = '';
+                feature.solutions.forEach(sol => {
+                    solutionsDiv.innerHTML += `
+                        <div class="solution-item">
+                            <h5>${sol.title}</h5>
+                            <p>${sol.desc}</p>
+                        </div>
+                    `;
+                });
+                analysisPanel.style.display = 'block';
+            }
+
+            function fetchAndDisplayHazards(hazardType) {
+                fetch(`/api/environmental-hazards?type=${hazardType}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        hazardLayer.clearLayers();
+                        analysisPanel.style.display = 'none';
+
+                        data.forEach(feature => {
+                            let layer;
+                            const color = feature.risk_level === 'High' ? 'red' : 'orange';
+
+                            if (feature.polygon) { // It's a landslide zone
+                                layer = L.polygon(feature.polygon, { color: color, weight: 2, fillOpacity: 0.4 });
+                            } else if (feature.path) { // It's a winter road
+                                layer = L.polyline(feature.path, { color: color, weight: 5, opacity: 0.8 });
+                            }
+
+                            if (layer) {
+                                layer.bindPopup(`<b>${feature.name}</b><br>Risk: ${feature.risk_level}`);
+                                layer.on('click', () => {
+                                    displayAnalysis(feature);
+                                });
+                                hazardLayer.addLayer(layer);
+                            }
+                        });
+                    })
+                    .catch(error => console.error(`Error fetching ${hazardType} data:`, error));
+            }
+
+            document.getElementById('btn-landslide').addEventListener('click', () => {
+                fetchAndDisplayHazards('landslide');
+            });
+
+            document.getElementById('btn-winter').addEventListener('click', () => {
+                fetchAndDisplayHazards('winter');
+            });
+
+            // Initially load landslide risks
+            fetchAndDisplayHazards('landslide');
+        });
+    </script>
+</body>
+</html>

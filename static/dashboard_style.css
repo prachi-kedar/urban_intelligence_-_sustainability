@@ -1,0 +1,348 @@
+/* static/dashboard_style.css */
+
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+
+:root {
+    --primary-color: #005a70; /* Deep teal */
+    --secondary-color: #00897b; /* Lighter teal */
+    --accent-color: #ffc107; /* Amber */
+    --background-color: #f4f6f8;
+    --text-color: #333;
+    --card-bg-color: #ffffff;
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --border-radius: 12px;
+}
+
+body {
+    font-family: 'Roboto', sans-serif;
+    margin: 0;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.sidebar {
+    width: 380px;
+    background-color: var(--card-bg-color);
+    padding: 25px;
+    overflow-y: auto;
+    box-shadow: var(--shadow);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-header {
+    text-align: center;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.sidebar-header h1 {
+    font-size: 1.8em;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin: 0;
+}
+
+.sidebar-header p {
+    font-size: 0.95em;
+    color: #666;
+    margin: 5px 0 15px;
+}
+
+.nav-container {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.nav-link {
+    display: block;
+    background-color: var(--primary-color);
+    color: white;
+    text-decoration: none;
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+    font-weight: 500;
+    transition: background-color 0.3s ease;
+    flex: 1;
+}
+
+.nav-link:hover {
+    background-color: var(--secondary-color);
+}
+
+.feature-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.feature-link {
+    background-color: var(--accent-color) !important;
+    color: black !important;
+    font-weight: 700 !important;
+}
+
+.feature-link:hover {
+    background-color: #ffb300 !important;
+}
+
+.sidebar-section {
+    background-color: #f9fafb;
+    border-radius: var(--border-radius);
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid #e7e7e7;
+}
+
+.sidebar-section h2 {
+    font-size: 1.3em;
+    font-weight: 500;
+    color: var(--primary-color);
+    margin-top: 0;
+    margin-bottom: 15px;
+    border-bottom: 2px solid var(--secondary-color);
+    padding-bottom: 8px;
+}
+
+#map-container {
+    flex: 1;
+    display: flex; /* Use flexbox to manage child elements */
+    flex-direction: column; /* Stack children vertically */
+    position: relative;
+    height: 100vh; /* Ensure it takes full viewport height */
+}
+
+#map {
+    width: 100%;
+    height: 100%;
+}
+
+/* AI Mentor Advice Box */
+#mentor-advice {
+    white-space: pre-wrap;
+    font-size: 0.9em;
+    line-height: 1.6;
+    background-color: #e8f5e9;
+    border-left: 5px solid #4caf50;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+#mentor-advice h3, #mentor-advice h4 {
+    color: #2e7d32;
+    margin-top: 0;
+}
+
+/* Dynamic Incident Analysis */
+#incident-analysis {
+    font-size: 0.9em;
+    background-color: #fff8e1;
+    border-left: 5px solid var(--accent-color);
+    padding: 15px;
+    border-radius: 8px;
+}
+
+#incident-analysis h3, #incident-analysis h4 {
+    margin-top: 0;
+    color: #c67c00;
+}
+
+#incident-analysis p {
+    margin: 5px 0;
+    line-height: 1.5;
+}
+
+#incident-analysis img {
+    max-width: 100%;
+    height: auto;
+    margin-top: 15px;
+    border-radius: 8px;
+    border: 3px solid var(--accent-color);
+}
+
+/* Top Delays Table */
+#top-delays-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+}
+
+#top-delays-table th, #top-delays-table td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+#top-delays-table th {
+    background-color: #f1f1f1;
+    font-weight: 500;
+}
+
+#top-delays-table tr:last-child td {
+    border-bottom: none;
+}
+
+#top-delays-table tr:hover {
+    background-color: #f5f5f5;
+}
+
+/* Map Legend */
+.legend {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 15px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    z-index: 1000;
+    width: 220px;
+}
+
+.legend h4 {
+    margin: 0 0 10px;
+    font-size: 1.1em;
+    color: var(--primary-color);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 0.9em;
+}
+
+.color-box {
+    width: 18px;
+    height: 18px;
+    margin-right: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+/* Scrollbar styling */
+.sidebar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: #aaa;
+}
+
+#construction-section input,
+#event-planning-section input {
+    width: calc(100% - 20px);
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.transport-modes {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 10px;
+}
+
+.transport-modes button {
+    font-size: 1.5em;
+    background: none;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: border-color 0.3s;
+}
+
+.transport-modes button:hover,
+.transport-modes button.active {
+    border-color: var(--accent-color);
+}
+
+/* Weather Widget */
+#weather-widget {
+    text-align: center;
+}
+
+#weather-content .weather-main {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    margin-bottom: 5px;
+}
+
+#weather-content .weather-icon {
+    width: 60px;
+    height: 60px;
+}
+
+#weather-content .weather-temp {
+    font-size: 2.2em;
+    font-weight: 500;
+    color: var(--primary-color);
+}
+
+#weather-content .weather-description {
+    text-transform: capitalize;
+    font-size: 1.1em;
+    margin: 0 0 15px;
+    color: #555;
+}
+
+#weather-content .weather-details {
+    display: flex;
+    justify-content: space-around;
+    font-size: 0.9em;
+    color: #666;
+}
+
+/* Air Quality Widget */
+#air-quality-widget {
+    text-align: center;
+}
+
+#air-quality-content .aqi-main {
+    margin-bottom: 10px;
+}
+
+#air-quality-content .aqi-value {
+    font-size: 2.2em;
+    font-weight: 700;
+    margin-right: 10px;
+}
+
+#air-quality-content .aqi-quality {
+    font-size: 1.4em;
+    font-weight: 500;
+}
+
+#air-quality-content .aqi-details {
+    display: flex;
+    justify-content: space-around;
+    font-size: 0.9em;
+    color: #666;
+    background-color: #f0f0f0;
+    padding: 8px;
+    border-radius: 8px;
+}
+
+#air-quality-content .aqi-details strong {
+    color: #333;
+}

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Mentor for Urban Planners</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='ai_mentor_style.css') }}">
+</head>
+<body>
+    <div class="mentor-container">
+        <div class="header">
+            <h1>AI Urban Planning Mentor</h1>
+            <p>Your guide to sustainable and equitable city design.</p>
+        </div>
+
+        <div class="chat-window" id="chat-window">
+            <!-- Messages will be appended here -->
+            <div class="message mentor-message">
+                <p>Welcome! I am your AI Mentor. I can help you with key urban planning topics. Please select a predefined question below to start, or type your own question.</p>
+            </div>
+        </div>
+
+        <div class="predefined-questions" id="predefined-questions">
+            <h2>Predefined Questions</h2>
+            <div class="questions-grid" id="questions-grid">
+                <!-- Predefined questions will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatWindow = document.getElementById('chat-window');
+            const questionsGrid = document.getElementById('questions-grid');
+
+            // Fetch predefined questions from the backend
+            fetch('/api/ai-mentor/questions')
+                .then(response => response.json())
+                .then(data => {
+                    data.questions.forEach(q => {
+                        const questionButton = document.createElement('button');
+                        questionButton.className = 'question-button';
+                        questionButton.textContent = q;
+                        questionButton.onclick = () => handleQuestionClick(q);
+                        questionsGrid.appendChild(questionButton);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching predefined questions:', error);
+                    questionsGrid.innerHTML = '<p>Error loading questions. Please try again later.</p>';
+                });
+
+            function handleQuestionClick(question) {
+                // 1. Display user's question in the chat window
+                const userMessage = document.createElement('div');
+                userMessage.className = 'message user-message';
+                userMessage.innerHTML = `<p>${question}</p>`;
+                chatWindow.appendChild(userMessage);
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+
+                // 2. Fetch the answer from the backend
+                fetchAnswer(question);
+            }
+
+            function fetchAnswer(question) {
+                const thinkingMessage = document.createElement('div');
+                thinkingMessage.id = 'thinking';
+                thinkingMessage.className = 'message mentor-message';
+                thinkingMessage.innerHTML = `<p><span class="dot"></span><span class="dot"></span><span class="dot"></span></p>`;
+                chatWindow.appendChild(thinkingMessage);
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+
+                fetch('/api/ai-mentor/answer', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ question: question }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Remove "thinking" indicator
+                    const thinkingIndicator = document.getElementById('thinking');
+                    if (thinkingIndicator) {
+                        thinkingIndicator.remove();
+                    }
+
+                    // Display mentor's answer
+                    const mentorMessage = document.createElement('div');
+                    mentorMessage.className = 'message mentor-message';
+                    // Use innerHTML to parse potential HTML tags in the answer if needed
+                    mentorMessage.innerHTML = `<p>${data.answer.replace(/\n/g, '<br>')}</p>`;
+                    chatWindow.appendChild(mentorMessage);
+                    chatWindow.scrollTop = chatWindow.scrollHeight;
+                })
+                .catch(error => {
+                    console.error('Error fetching answer:', error);
+                    const thinkingIndicator = document.getElementById('thinking');
+                    if (thinkingIndicator) {
+                        thinkingIndicator.innerHTML = '<p>Sorry, something went wrong.</p>';
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Citizen Navigation</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='navigation_style.css') }}">
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ google_api_key }}&libraries=places"></script>
+</head>
+<body>
+    <div class="container">
+        <div id="control-panel">
+            <h1>Smart Navigator</h1>
+            <p class="tagline">Your intelligent guide through Zurich</p>
+
+            <div class="input-group">
+                <label for="start-input">Start</label>
+                <input type="text" id="start-input" placeholder="Enter a starting address">
+            </div>
+
+            <div class="input-group">
+                <label for="end-input">Destination</label>
+                <input type="text" id="end-input" placeholder="Enter a destination">
+            </div>
+
+            <div id="mode-selector">
+                <button id="mode-driving" class="active" title="Driving">🚗</button>
+                <button id="mode-transit" title="Public Transit">🚌</button>
+                <button id="mode-walking" title="Walking">🚶</button>
+                <button id="mode-bicycling" title="Bicycling">🚲</button>
+            </div>
+
+            <div class="options-group">
+                <label>
+                    <input type="checkbox" id="quiet-route-checkbox" disabled>
+                    Prefer Quiet Route (Parks & Green Spaces)
+                </label>
+            </div>
+
+            <button id="get-route-btn">Get Smart Route</button>
+
+            <div id="results-panel">
+                <div class="smart-advice" style="display: none;">
+                    <h3>💡 Smart Tip</h3>
+                    <p id="advice-text"></p>
+                </div>
+                <ul id="directions-list"></ul>
+            </div>
+        </div>
+        <div id="map-container">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const googleApiKey = "{{ google_api_key }}";
+        
+        // Initialize Leaflet Map
+        const map = L.map('map').setView([47.3769, 8.5417], 13);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        }).addTo(map);
+
+        let routeLayer = L.layerGroup().addTo(map);
+        let travelMode = 'DRIVING';
+
+        // Google Places Autocomplete
+        const startInput = document.getElementById('start-input');
+        const endInput = document.getElementById('end-input');
+        const startAutocomplete = new google.maps.places.Autocomplete(startInput);
+        const endAutocomplete = new google.maps.places.Autocomplete(endInput);
+        const quietRouteCheckbox = document.getElementById('quiet-route-checkbox');
+
+        // Mode Selector Logic
+        const modeButtons = document.querySelectorAll('#mode-selector button');
+        modeButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                modeButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                travelMode = button.id.replace('mode-', '').toUpperCase();
+                
+                // Enable quiet route option only for walking and bicycling
+                if (travelMode === 'WALKING' || travelMode === 'BICYCLING') {
+                    quietRouteCheckbox.disabled = false;
+                } else {
+                    quietRouteCheckbox.disabled = true;
+                    quietRouteCheckbox.checked = false;
+                }
+            });
+        });
+
+        // Get Route Button
+        document.getElementById('get-route-btn').addEventListener('click', () => {
+            const start = startInput.value;
+            const end = endInput.value;
+            if (!start || !end) {
+                alert('Please enter both a start and end address.');
+                return;
+            }
+            const preferQuiet = quietRouteCheckbox.checked;
+            fetchAndDisplayRoute(start, end, travelMode, preferQuiet);
+        });
+
+        function fetchAndDisplayRoute(origin, destination, mode, preferQuiet) {
+            fetch('/api/smart-route', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    origin, 
+                    destination, 
+                    mode,
+                    prefer_quiet: preferQuiet 
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                routeLayer.clearLayers();
+                document.getElementById('directions-list').innerHTML = '';
+                const advicePanel = document.querySelector('.smart-advice');
+                const adviceText = document.getElementById('advice-text');
+
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+
+                // Display Smart Advice
+                if (data.smart_advice) {
+                    adviceText.textContent = data.smart_advice;
+                    advicePanel.style.display = 'block';
+                } else {
+                    advicePanel.style.display = 'none';
+                }
+
+                // Draw route on map
+                const routeColor = preferQuiet ? '#28a745' : 'var(--primary-color)'; // Green for quiet routes
+                const routeLine = L.polyline(data.path, { color: routeColor, weight: 6 }).addTo(routeLayer);
+                map.fitBounds(routeLine.getBounds());
+
+                // Display turn-by-turn directions
+                const directionsList = document.getElementById('directions-list');
+                data.directions.forEach(step => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span>${step.html_instructions}</span> <strong>${step.distance.text}</strong>`;
+                    directionsList.appendChild(li);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching smart route:', error);
+                alert('An unexpected error occurred.');
+            });
+        }
+    </script>
+</body>
+</html>

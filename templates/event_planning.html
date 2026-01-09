@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Visit Planner - Zurich Urban Mobility</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='navigation_style.css') }}">
+    <style>
+        .sidebar {
+            overflow-y: auto; /* Make sidebar scrollable */
+        }
+        /* Additional styles specific to this page can go here */
+        #event-planning-sidebar {
+            width: 400px; /* Increased width for better layout */
+        }
+        .market-item {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .market-item:hover {
+            background-color: #f4f4f4;
+        }
+        .market-item.selected {
+            background-color: #e0f0ff;
+            border-left: 4px solid #007bff;
+            font-weight: bold;
+        }
+        #route-summary {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        /* New styles for transport mode buttons */
+        .transport-modes {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+        }
+        .transport-modes button {
+            font-size: 1.8em; /* Larger icons */
+            background: none;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .transport-modes button:hover {
+            background-color: #f0f0f0;
+        }
+        .transport-modes button.active {
+            border-color: #007bff;
+            background-color: #eaf6ff;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <div id="event-planning-sidebar" class="sidebar">
+        <h2>🎄 Christmas Market Planner</h2>
+        <p>Plan your visit to a less crowded Christmas market.</p>
+
+        <div class="input-group">
+            <label for="arrival-datetime">Desired Arrival Time:</label>
+            <input type="datetime-local" id="arrival-datetime" name="arrival-datetime">
+        </div>
+        <button id="find-markets-btn" class="cta-button">Find Available Markets</button>
+
+        <hr>
+
+        <div id="markets-list-container" style="display: none;">
+            <h4>Available Markets (Low/Medium Crowd)</h4>
+            <div id="markets-list">
+                <!-- Market suggestions will be populated here -->
+            </div>
+        </div>
+
+        <div id="routing-options" style="display: none;">
+            <div class="input-group">
+                <label for="start-location">Your Starting Location:</label>
+                <input type="text" id="start-location" placeholder="e.g., Zürich HB, Switzerland">
+            </div>
+            <div class="input-group">
+                <label>Travel Mode:</label>
+                <div class="transport-modes">
+                    <button id="mode-walking" data-mode="walking" class="active" title="Walking">🚶</button>
+                    <button id="mode-driving" data-mode="driving" title="Driving">🚗</button>
+                    <button id="mode-transit" data-mode="transit" title="Public Transport">🚌</button>
+                </div>
+            </div>
+            <button id="get-route-btn" class="cta-button">Get Directions</button>
+        </div>
+        
+        <div id="route-summary" style="display: none;">
+            <!-- Route details will be shown here -->
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ google_api_key }}&libraries=places"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const map = L.map('map').setView([47.37, 8.54], 13);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 19
+            }).addTo(map);
+
+            let marketMarkers = L.layerGroup().addTo(map);
+            let routeLayer = L.layerGroup().addTo(map);
+            let selectedMarket = null;
+            let travelMode = 'walking'; // Default travel mode
+
+            const findMarketsBtn = document.getElementById('find-markets-btn');
+            const marketsListDiv = document.getElementById('markets-list');
+            const marketsListContainer = document.getElementById('markets-list-container');
+            const routingOptionsDiv = document.getElementById('routing-options');
+            const getRouteBtn = document.getElementById('get-route-btn');
+            const routeSummaryDiv = document.getElementById('route-summary');
+            const arrivalInput = document.getElementById('arrival-datetime');
+
+            // --- Initialize Google Places Autocomplete ---
+            const startLocationInput = document.getElementById('start-location');
+            const autocomplete = new google.maps.places.Autocomplete(startLocationInput, {
+                bounds: new google.maps.LatLngBounds(
+                    new google.maps.LatLng(47.2, 8.3), // Approx SW of Zurich
+                    new google.maps.LatLng(47.5, 8.7)  // Approx NE of Zurich
+                ),
+                strictBounds: true
+            });
+
+            // --- Set default date and time ---
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset()); // Adjust for local time
+            now.setSeconds(0);
+            now.setMilliseconds(0);
+            arrivalInput.value = now.toISOString().slice(0, 16);
+
+            // --- Transport Mode Button Logic ---
+            const modeButtons = document.querySelectorAll('.transport-modes button');
+            modeButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    modeButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    travelMode = button.dataset.mode;
+                });
+            });
+
+            findMarketsBtn.addEventListener('click', () => {
+                const arrivalDateTime = arrivalInput.value;
+                if (!arrivalDateTime) {
+                    alert('Please select a desired arrival date and time.');
+                    return;
+                }
+
+                fetch('/api/plan-event-visit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ datetime: arrivalDateTime })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    marketMarkers.clearLayers();
+                    marketsListDiv.innerHTML = '';
+                    if (data.markets && data.markets.length > 0) {
+                        marketsListContainer.style.display = 'block';
+                        data.markets.forEach(market => {
+                            const marker = L.marker([market.lat, market.lon]).addTo(marketMarkers);
+                            marker.bindPopup(`<b>${market.name}</b><br>Crowd: ${market.crowd}`);
+                            
+                            const marketItem = document.createElement('div');
+                            marketItem.className = 'market-item';
+                            marketItem.textContent = `${market.name} (Crowd: ${market.crowd})`;
+                            marketItem.dataset.marketId = market.id;
+                            marketItem.addEventListener('click', () => {
+                                selectedMarket = market.id;
+                                document.querySelectorAll('.market-item').forEach(item => item.classList.remove('selected'));
+                                marketItem.classList.add('selected');
+                                routingOptionsDiv.style.display = 'block';
+                                map.setView([market.lat, market.lon], 15);
+                                marker.openPopup();
+                            });
+                            marketsListDiv.appendChild(marketItem);
+                        });
+                    } else {
+                        marketsListContainer.style.display = 'block';
+                        marketsListDiv.innerHTML = '<p>No low-crowd markets found for this time. Try a different time.</p>';
+                    }
+                });
+            });
+
+            getRouteBtn.addEventListener('click', () => {
+                const origin = startLocationInput.value;
+                const arrivalDateTime = arrivalInput.value;
+
+                if (!origin || !selectedMarket) {
+                    alert('Please enter a starting location and select a market.');
+                    return;
+                }
+
+                routeLayer.clearLayers();
+                routeSummaryDiv.innerHTML = '<p>Calculating route...</p>';
+                routeSummaryDiv.style.display = 'block';
+
+                fetch('/api/event-route', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        origin: origin,
+                        market_id: selectedMarket,
+                        mode: travelMode,
+                        departure_time: arrivalDateTime // API calculates departure based on this arrival time
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        routeSummaryDiv.innerHTML = `<p style="color: red;">Error: ${data.error}</p>`;
+                        return;
+                    }
+
+                    const routeLine = L.polyline(data.path, { color: '#007bff', weight: 5 }).addTo(routeLayer);
+                    map.fitBounds(routeLine.getBounds().pad(0.1));
+
+                    routeSummaryDiv.innerHTML = `
+                        <h4>Route Summary</h4>
+                        <p>${data.summary} <b>${data.estimated_departure}</b>.</p>
+                        <p><b>Distance:</b> ${data.distance}</p>
+                        <p><b>Est. Duration:</b> ${data.duration}</p>
+                    `;
+                })
+                .catch(err => {
+                    routeSummaryDiv.innerHTML = `<p style="color: red;">An unexpected error occurred. Please try again.</p>`;
+                    console.error(err);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

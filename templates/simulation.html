@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scenario Simulation Tool - UrbanTeam</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='simulation_style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="control-panel">
+            <h1>Scenario Simulation Tool</h1>
+            <p>Draw a new road, bike lane, or public transport route on the map to analyze its potential impact on the city's network.</p>
+            
+            <div class="instructions">
+                <ol>
+                    <li>Use the polyline tool <img src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/images/spritesheet.png" style="background-position: -31px -1px; width: 25px; height: 25px; display: inline-block; vertical-align: middle;"> on the left to draw a path on the map.</li>
+                    <li>Select the type of infrastructure you are proposing.</li>
+                    <li>Click "Run Simulation" to get an AI-generated impact assessment.</li>
+                </ol>
+            </div>
+
+            <div class="form-group">
+                <label for="route-type">Infrastructure Type:</label>
+                <select id="route-type">
+                    <option value="road">New Road</option>
+                    <option value="bike_lane">New Bike Lane</option>
+                    <option value="pt_route">New Public Transport Route</option>
+                </select>
+            </div>
+
+            <button id="run-simulation-btn" disabled>Run Simulation</button>
+            <button id="clear-map-btn">Clear</button>
+             <a href="/" class="nav-link">Back to Dashboard</a>
+        </div>
+
+        <div id="map"></div>
+
+        <div id="report-panel" class="report-panel">
+            <h2>Impact Assessment Report</h2>
+            <div id="report-content">
+                <p>The analysis of your proposed route will appear here.</p>
+            </div>
+            <div id="score-container" style="display:none;">
+                <h3>Overall Impact Score: <span id="impact-score"></span>/100</h3>
+                <div class="score-bar-container">
+                    <div id="score-bar"></div>
+                </div>
+                <h3 id="summary-text"></h3>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // --- Map Initialization ---
+            const map = L.map('map').setView([{{ center_lat }}, {{ center_lon }}], 13);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            }).addTo(map);
+
+            // --- Drawing Initialization ---
+            const drawnItems = new L.FeatureGroup();
+            map.addLayer(drawnItems);
+
+            const drawControl = new L.Control.Draw({
+                edit: {
+                    featureGroup: drawnItems,
+                    remove: true
+                },
+                draw: {
+                    polygon: false,
+                    marker: false,
+                    circle: false,
+                    rectangle: false,
+                    circlemarker: false,
+                    polyline: {
+                        shapeOptions: {
+                            color: '#f357a1',
+                            weight: 4
+                        }
+                    }
+                }
+            });
+            map.addControl(drawControl);
+
+            let drawnRouteCoords = null;
+
+            map.on(L.Draw.Event.CREATED, function (event) {
+                const layer = event.layer;
+                drawnItems.clearLayers(); // Only allow one drawing at a time
+                drawnItems.addLayer(layer);
+                
+                drawnRouteCoords = layer.getLatLngs().map(latlng => [latlng.lat, latlng.lng]);
+                document.getElementById('run-simulation-btn').disabled = false;
+            });
+
+            map.on(L.Draw.Event.EDITED, function (event) {
+                const layers = event.layers;
+                layers.eachLayer(function (layer) {
+                    drawnRouteCoords = layer.getLatLngs().map(latlng => [latlng.lat, latlng.lng]);
+                });
+                 document.getElementById('run-simulation-btn').disabled = false;
+            });
+            
+            map.on(L.Draw.Event.DELETED, function() {
+                drawnRouteCoords = null;
+                document.getElementById('run-simulation-btn').disabled = true;
+            });
+
+
+            // --- UI Event Listeners ---
+            const runBtn = document.getElementById('run-simulation-btn');
+            const clearBtn = document.getElementById('clear-map-btn');
+            const routeTypeSelect = document.getElementById('route-type');
+            const reportContent = document.getElementById('report-content');
+            const scoreContainer = document.getElementById('score-container');
+            const scoreBar = document.getElementById('score-bar');
+            const impactScoreEl = document.getElementById('impact-score');
+            const summaryTextEl = document.getElementById('summary-text');
+
+            runBtn.addEventListener('click', function () {
+                if (!drawnRouteCoords) {
+                    alert('Please draw a route on the map first.');
+                    return;
+                }
+
+                const routeType = routeTypeSelect.value;
+                reportContent.innerHTML = '<p>Running simulation... Please wait.</p>';
+                scoreContainer.style.display = 'none';
+                runBtn.disabled = true;
+                runBtn.textContent = 'Analyzing...';
+
+                fetch('/api/run-simulation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        route_coords: drawnRouteCoords,
+                        route_type: routeType
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        reportContent.innerHTML = `<p style="color: red;">Error: ${data.error}</p>`;
+                        return;
+                    }
+                    
+                    // Display Report
+                    reportContent.innerHTML = data.report.replace(/\n/g, '<br>');
+
+                    // Display Score
+                    impactScoreEl.textContent = data.score;
+                    summaryTextEl.textContent = data.summary;
+                    summaryTextEl.style.color = data.color;
+                    scoreBar.style.width = `${data.score}%`;
+                    scoreBar.style.backgroundColor = data.color;
+                    scoreContainer.style.display = 'block';
+
+                })
+                .catch(error => {
+                    reportContent.innerHTML = `<p style="color: red;">An unexpected error occurred: ${error}</p>`;
+                })
+                .finally(() => {
+                    runBtn.disabled = false;
+                    runBtn.textContent = 'Run Simulation';
+                });
+            });
+
+            clearBtn.addEventListener('click', function() {
+                drawnItems.clearLayers();
+                drawnRouteCoords = null;
+                runBtn.disabled = true;
+                reportContent.innerHTML = '<p>The analysis of your proposed route will appear here.</p>';
+                scoreContainer.style.display = 'none';
+            });
+        });
+    </script>
+</body>
+</html>

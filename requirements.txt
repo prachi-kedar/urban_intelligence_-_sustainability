@@ -1,0 +1,24 @@
+# Core data handling
+pandas>=2.2.0
+numpy>=1.26.0
+
+# Machine learning
+scikit-learn>=1.5.0
+xgboost>=2.1.0
+
+# Deep learning (optional, for LSTM)
+tensorflow>=2.16.0
+
+# Data fetching
+requests>=2.32.0
+
+# Date and time handling
+python-dateutil>=2.9.0
+
+# Optional: progress bars, visualization (recommended)
+tqdm>=4.66.0
+matplotlib>=3.9.0
+
+# Google Maps and routing
+googlemaps
+polyline

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Construction Routing</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard_style.css') }}">
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="sidebar-header">
+        <h1>Construction Routing</h1>
+        <p>Find the best path</p>
+        <div class="nav-container">
+            <a href="/" class="nav-link">Back to Dashboard</a>
+        </div>
+    </div>
+
+    <div class="sidebar-section">
+        <h2>Enter Route</h2>
+        <input type="text" id="construction-source" placeholder="Enter starting point">
+        <input type="text" id="construction-dest" placeholder="Enter destination">
+        <div class="transport-modes">
+            <button data-mode="walking">🚶</button>
+            <button data-mode="driving">🚗</button>
+            <button data-mode="transit">🚌</button>
+        </div>
+        <div id="route-info"></div>
+    </div>
+</div>
+
+<div id="map-container">
+    <div id="map"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+    var map = L.map('map').setView([47.37, 8.54], 13);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 19
+    }).addTo(map);
+
+    const sourceInput = document.getElementById('construction-source');
+    const destInput = document.getElementById('construction-dest');
+    const modeButtons = document.querySelectorAll('.transport-modes button');
+    const routeInfoDiv = document.getElementById('route-info');
+    var routeLayer = L.layerGroup().addTo(map);
+
+    modeButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const mode = button.dataset.mode;
+            const origin = sourceInput.value;
+            const destination = destInput.value;
+
+            if (!origin || !destination) {
+                alert("Please enter both a starting point and a destination.");
+                return;
+            }
+
+            modeButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+
+            fetchRoute(origin, destination, mode);
+        });
+    });
+
+    function fetchRoute(origin, destination, mode) {
+        routeLayer.clearLayers();
+        routeInfoDiv.innerHTML = '<p>Calculating route...</p>';
+
+        fetch('/api/smart-route', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ origin, destination, mode }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.path && data.path.length > 0) {
+                const routeLine = L.polyline(data.path, {
+                    color: '#3388ff',
+                    weight: 6,
+                    opacity: 0.8
+                }).addTo(routeLayer);
+                
+                map.fitBounds(routeLine.getBounds().pad(0.1));
+
+                routeInfoDiv.innerHTML = `
+                    <p><strong>${data.summary}</strong></p>
+                    <p>Distance: ${data.distance}</p>
+                    <p>Duration: ${data.duration}</p>
+                    <p><em>${data.smart_advice}</em></p>
+                `;
+            } else {
+                routeInfoDiv.innerHTML = '<p style="color:red;">Could not find a route. Please check the locations.</p>';
+                console.error("No path received:", data.error || "Unknown error");
+            }
+        })
+        .catch(error => {
+            routeInfoDiv.innerHTML = '<p style="color:red;">An error occurred while fetching the route.</p>';
+            console.error('Error fetching route:', error);
+        });
+    }
+</script>
+
+</body>
+</html>

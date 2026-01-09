@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crowd Anomaly Detection</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='navigation_style.css') }}">
+    <style>
+        body { display: flex; overflow: hidden; font-family: 'Roboto', sans-serif; }
+        #map { flex-grow: 1; height: 100vh; }
+        .sidebar { width: 450px; background: #fff; border-left: 1px solid #ddd; display: flex; flex-direction: column; }
+        .sidebar-header { padding: 20px; border-bottom: 1px solid #ddd; }
+        .sidebar-header h1 { margin: 0; }
+        .sidebar-section { flex-grow: 1; overflow-y: auto; }
+        #alert-list { padding: 0; margin: 0; }
+        .alert-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .alert-item:hover { background-color: #f9f9f9; }
+        .alert-item.selected { background-color: #fffbe6; }
+
+        .alert-item h4 { margin: 0 0 8px; }
+        .alert-item .status { font-weight: bold; padding: 3px 8px; border-radius: 12px; color: white; display: inline-block; margin-bottom: 8px; }
+        .alert-Green { background-color: #28a745; }
+        .alert-Yellow { background-color: #ffc107; color: #333 !important; }
+        .alert-Orange { background-color: #fd7e14; }
+        .alert-Red { background-color: #dc3545; }
+
+        .alert-details p { margin: 4px 0; font-size: 0.9em; }
+        .alert-details .recommendation {
+            margin-top: 10px;
+            font-style: italic;
+            color: #555;
+            border-left: 3px solid;
+            padding-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1><a href="/" style="text-decoration: none; color: inherit;">Security Center</a></h1>
+            <p>Real-Time Crowd Anomaly Detection</p>
+        </div>
+        <div class="sidebar-section">
+            <div id="alert-list">
+                <p style="padding: 20px;">Loading security analysis...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const map = L.map('map').setView([47.37, 8.54], 14);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 19
+            }).addTo(map);
+
+            const alertListDiv = document.getElementById('alert-list');
+            const zoneMarkers = L.layerGroup().addTo(map);
+            let markers = {};
+
+            function updateDashboard() {
+                fetch('/api/crowd-analysis')
+                    .then(response => response.json())
+                    .then(data => {
+                        alertListDiv.innerHTML = '';
+                        zoneMarkers.clearLayers();
+                        markers = {};
+
+                        // Sort by alert level importance
+                        const alertOrder = { "Red": 4, "Orange": 3, "Yellow": 2, "Green": 1 };
+                        data.sort((a, b) => (alertOrder[b.alert_level] || 0) - (alertOrder[a.alert_level] || 0));
+
+                        data.forEach(area => {
+                            // --- Update List ---
+                            const alertItem = document.createElement('div');
+                            alertItem.className = 'alert-item';
+                            alertItem.dataset.areaId = area.id;
+                            alertItem.innerHTML = `
+                                <h4>${area.name}</h4>
+                                <span class="status alert-${area.alert_level}">${area.status}</span>
+                                <div class="alert-details">
+                                    <p><strong>Density:</strong> ${area.current_density} (Normal: ${area.normal_density})</p>
+                                    <p class="recommendation alert-${area.alert_level}">${area.recommendation}</p>
+                                </div>
+                            `;
+                            alertItem.addEventListener('click', () => {
+                                map.setView(area.coords, 16);
+                                if (markers[area.id]) {
+                                    markers[area.id].openPopup();
+                                }
+                                document.querySelectorAll('.alert-item').forEach(item => item.classList.remove('selected'));
+                                alertItem.classList.add('selected');
+                            });
+                            alertListDiv.appendChild(alertItem);
+
+                            // --- Update Map ---
+                            const markerColor = area.alert_level.toLowerCase();
+                            const marker = L.circle(area.coords, {
+                                radius: 100, // Radius in meters
+                                color: markerColor,
+                                fillColor: markerColor,
+                                fillOpacity: area.alert_level === 'Green' ? 0.2 : 0.6
+                            }).addTo(zoneMarkers);
+                            
+                            marker.bindPopup(`<b>${area.name}</b><br>Status: ${area.status}<br>Density: ${area.current_density}`);
+                            markers[area.id] = marker;
+                        });
+                    })
+                    .catch(error => {
+                        alertListDiv.innerHTML = '<p style="padding: 20px; color:red;">Could not load security data.</p>';
+                        console.error('Error fetching crowd analysis:', error);
+                    });
+            }
+
+            updateDashboard();
+            setInterval(updateDashboard, 10000); // Refresh every 10 seconds
+        });
+    </script>
+</body>
+</html>

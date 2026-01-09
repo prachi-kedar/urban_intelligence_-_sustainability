@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus - Urban Intelligence Platform</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='portals.css') }}">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Welcome to Nexus</h1>
+            <p>Your central hub for urban intelligence and sustainability. Choose your portal to begin.</p>
+        </header>
+        <div class="portal-container">
+            <a href="/citizen" class="portal-card">
+                <div class="icon">🚶</div>
+                <h2>Citizen Portal</h2>
+                <p>Access tools for navigation, event planning, and understanding your urban environment.</p>
+            </a>
+            <a href="/planner" class="portal-card">
+                <div class="icon">🏙️</div>
+                <h2>Planner Portal</h2>
+                <p>Utilize advanced dashboards and AI-driven insights for strategic urban planning.</p>
+            </a>
+        </div>
+    </div>
+</body>
+</html>

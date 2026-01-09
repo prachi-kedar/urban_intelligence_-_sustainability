@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>City Events</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    <link rel="stylesheet" href="{{ url_for('static', filename='navigation_style.css') }}">
+    <style>
+        body {
+            display: flex;
+            overflow: hidden;
+        }
+        .sidebar {
+            width: 380px;
+            background: #fff;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .sidebar-section {
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+        #event-list {
+            padding: 0;
+            margin: 0;
+        }
+        .event-list-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .event-list-item:hover {
+            background-color: #f7f7f7;
+        }
+        .event-list-item.active {
+            background-color: #e8f0fe;
+            border-left: 3px solid #1a73e8;
+            padding-left: 17px;
+        }
+        .event-list-item h4 {
+            margin: 0 0 5px;
+            color: #1a73e8;
+        }
+        .event-list-item .event-type {
+            font-size: 0.8em;
+            font-weight: bold;
+            color: #e67e22;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        .event-list-item .event-date {
+             font-size: 0.9em;
+             color: #555;
+             margin-bottom: 8px;
+        }
+        .event-list-item .event-desc {
+            font-size: 0.9em;
+            color: #666;
+            line-height: 1.4;
+        }
+        #map-container {
+            flex-grow: 1;
+        }
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+        .sidebar-header .filters {
+            margin-top: 15px;
+        }
+        .sidebar-header #search-input, .sidebar-header #category-filter {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box; /* Ensures padding doesn't affect width */
+        }
+        .sidebar-header #search-input {
+            margin-bottom: 10px;
+        }
+        .no-results {
+            padding: 20px;
+            text-align: center;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="sidebar-header">
+        <h1><a href="/" style="text-decoration: none; color: inherit;">Urban Pulse</a></h1>
+        <p>Live Events in Zurich</p>
+        <div class="filters">
+            <input type="text" id="search-input" placeholder="Search events by name...">
+            <select id="category-filter">
+                <option value="all">All Categories</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="sidebar-section">
+        <div id="event-list">
+            <p style="padding: 20px;">Loading live events...</p>
+        </div>
+    </div>
+</div>
+
+<div id="map-container">
+    <div id="map"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+    var map = L.map('map').setView([47.37, 8.54], 13);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 19
+    }).addTo(map);
+
+    const eventListDiv = document.getElementById('event-list');
+    const eventMarkers = L.layerGroup().addTo(map);
+    const markers = {}; // To store markers by event ID
+    let allEvents = []; // To store the master list of events
+
+    const searchInput = document.getElementById('search-input');
+    const categoryFilter = document.getElementById('category-filter');
+
+    function renderEvents(eventsToRender) {
+        eventListDiv.innerHTML = '';
+        eventMarkers.clearLayers();
+        
+        if (eventsToRender.length === 0) {
+            eventListDiv.innerHTML = '<p class="no-results">No events match your criteria.</p>';
+            return;
+        }
+
+        eventsToRender.forEach(event => {
+            // --- Add event to the list ---
+            const eventItem = document.createElement('div');
+            eventItem.className = 'event-list-item';
+            eventItem.dataset.eventId = event.id;
+            
+            const formattedDate = event.date ? new Date(event.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Date not specified';
+            const descriptionSnippet = event.description.length > 100 ? event.description.substring(0, 100) + '...' : event.description;
+
+            eventItem.innerHTML = `
+                <div class="event-type">${event.type}</div>
+                <h4>${event.name}</h4>
+                <div class="event-date">${formattedDate}</div>
+                <p class="event-desc">${descriptionSnippet}</p>
+            `;
+            
+            eventItem.addEventListener('click', () => {
+                map.setView([event.lat, event.lon], 15);
+                if (markers[event.id]) {
+                    markers[event.id].openPopup();
+                }
+                // Highlight active item
+                document.querySelectorAll('.event-list-item').forEach(item => item.classList.remove('active'));
+                eventItem.classList.add('active');
+            });
+            eventListDiv.appendChild(eventItem);
+
+            // --- Add marker to the map ---
+            const marker = L.marker([event.lat, event.lon])
+                .addTo(eventMarkers)
+                .bindPopup(`<b>${event.name}</b><br>${event.type}`);
+            
+            markers[event.id] = marker; // Store marker
+        });
+    }
+
+    function applyFilters() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const selectedCategory = categoryFilter.value;
+
+        const filteredEvents = allEvents.filter(event => {
+            const nameMatch = event.name.toLowerCase().includes(searchTerm);
+            const categoryMatch = selectedCategory === 'all' || event.type === selectedCategory;
+            return nameMatch && categoryMatch;
+        });
+
+        renderEvents(filteredEvents);
+    }
+
+    function fetchEvents() {
+        fetch('/api/live-events')
+            .then(response => response.json())
+            .then(data => {
+                if (Array.isArray(data) && data.length > 0) {
+                    allEvents = data;
+                    const categories = [...new Set(data.map(event => event.type))];
+                    
+                    // Populate category filter
+                    categoryFilter.innerHTML = '<option value="all">All Categories</option>'; // Reset
+                    categories.forEach(category => {
+                        if (category) { // Ensure category is not null or empty
+                            const option = document.createElement('option');
+                            option.value = category;
+                            option.textContent = category;
+                            categoryFilter.appendChild(option);
+                        }
+                    });
+                    
+                    renderEvents(allEvents);
+                } else {
+                    eventListDiv.innerHTML = '<p class="no-results">No live events found at the moment.</p>';
+                }
+            })
+            .catch(error => {
+                eventListDiv.innerHTML = '<p style="padding: 20px; color:red;">Could not load live event data. Please try again later.</p>';
+                console.error('Error fetching events:', error);
+            });
+    }
+
+    searchInput.addEventListener('input', applyFilters);
+    categoryFilter.addEventListener('change', applyFilters);
+
+    fetchEvents();
+</script>
+
+</body>
+</html>

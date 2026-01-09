@@ -84,6 +84,29 @@ The application will be available at `http://127.0.0.1:5000`.
 -   **Planner Dashboard**: `http://127.0.0.1:5000/planner`
 -   **Citizen Portal**: `http://127.0.0.1:5000/citizen`
 
+
+## 🎥 Dashboard Previews
+
+Below are video previews demonstrating the dashboards for both Urban Planners and Users:
+
+### 🏙️ Urban Planner Dashboard
+
+<details>
+<summary>Click to preview</summary>
+
+<video src="assets/Urban Planner Dashboard.mp4" controls width="600"></video>
+
+</details>
+
+### 🚶 User Dashboard
+
+<details>
+<summary>Click to preview</summary>
+
+<video src="assets/User Dashboard.mp4" controls width="600"></video>
+
+</details>
+
 ## 📁 Project Structure
 
 ```

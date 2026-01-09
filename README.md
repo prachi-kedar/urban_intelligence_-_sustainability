@@ -91,21 +91,11 @@ Below are video previews demonstrating the dashboards for both Urban Planners an
 
 ### 🏙️ Urban Planner Dashboard
 
-<details>
-<summary>Click to preview</summary>
-
-<video src="assets/Urban Planner Dashboard.gif" controls width="600"></video>
-
-</details>
+![Urban Planner Dashboard](assets/Urban%20Planner%20Dashboard.gif)
 
 ### 🚶 User Dashboard
 
-<details>
-<summary>Click to preview</summary>
-
-<video src="assets/User Dashboard.gif" controls width="600"></video>
-
-</details>
+![User Dashboard](assets/User%20Dashboard.gif)
 
 ## 📁 Project Structure
 

@@ -1,5 +1,9 @@
 # Urban Intelligence & Sustainability Platform
 
+<p align="center">
+    <img src="assets/preview.jpg" alt="Platform Preview" width="700" />
+</p>
+
 This project is a comprehensive web-based platform designed for urban planners and citizens to monitor, analyze, and interact with city-wide data. It leverages real-time (and simulated) data to provide insights into traffic congestion, public transport efficiency, environmental risks, and citizen well-being. The platform is built with a Flask backend and a dynamic, map-centric frontend.
 
 ## ✨ Features
@@ -93,9 +97,13 @@ Below are video previews demonstrating the dashboards for both Urban Planners an
 
 ![Urban Planner Dashboard](assets/Urban%20Planner%20Dashboard.gif)
 
+[▶️ Watch full video](https://drive.google.com/file/d/1aX6iNYqISWLHym_3o6MURwPs_M6QJhlx/view?usp=sharing)
+
 ### 🚶 User Dashboard
 
 ![User Dashboard](assets/User%20Dashboard.gif)
+
+[▶️ Watch full video](https://drive.google.com/file/d/1ioxpv4mgqwU0xiDX63MupFobJB9kpO03/view?usp=sharing)
 
 ## 📁 Project Structure
 
